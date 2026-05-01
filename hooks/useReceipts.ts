@@ -17,14 +17,15 @@ export function useReceipts() {
     writeList(RECEIPTS_KEY, next);
   }
 
-  function add(note: Omit<ReceiptNote, "id" | "atual" | "createdAt" | "updatedAt">) {
+  function add(note: Omit<ReceiptNote, "id" | "atual" | "createdAt" | "updatedAt" | "confirmedAt">) {
     const now = Date.now();
     const nextNote: ReceiptNote = {
       ...note,
       id: crypto.randomUUID(),
       atual: 0,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      confirmedAt: null
     };
 
     persist([nextNote, ...notes]);
@@ -48,14 +49,23 @@ export function useReceipts() {
     persist(
       notes.map((note) =>
         note.id === id
-          ? { ...note, atual: Math.max(0, note.atual - 1), updatedAt: Date.now() }
+          ? { ...note, atual: Math.max(0, note.atual - 1), confirmedAt: null, updatedAt: Date.now() }
           : note
       )
     );
   }
 
   function reset(id: string) {
-    persist(notes.map((note) => (note.id === id ? { ...note, atual: 0, updatedAt: Date.now() } : note)));
+    persist(notes.map((note) => (note.id === id ? { ...note, atual: 0, confirmedAt: null, updatedAt: Date.now() } : note)));
+  }
+
+  function confirm(id: string) {
+    const now = Date.now();
+    persist(notes.map((note) => (note.id === id ? { ...note, confirmedAt: now, updatedAt: now } : note)));
+  }
+
+  function edit(id: string) {
+    persist(notes.map((note) => (note.id === id ? { ...note, confirmedAt: null, updatedAt: Date.now() } : note)));
   }
 
   function remove(id: string) {
@@ -63,16 +73,17 @@ export function useReceipts() {
   }
 
   function removeCompleted() {
-    persist(notes.filter((note) => note.atual < note.total));
+    persist(notes.filter((note) => !note.confirmedAt));
   }
 
   const stats = useMemo(() => {
     const totalItems = notes.reduce((sum, note) => sum + note.total, 0);
     const checkedItems = notes.reduce((sum, note) => sum + note.atual, 0);
-    const done = notes.filter((note) => note.atual >= note.total).length;
+    const done = notes.filter((note) => note.confirmedAt).length;
+    const review = notes.filter((note) => note.atual >= note.total && !note.confirmedAt).length;
 
-    return { totalItems, checkedItems, done, open: notes.length - done };
+    return { totalItems, checkedItems, done, review, open: notes.length - done };
   }, [notes]);
 
-  return { notes, add, exists, increment, decrement, reset, remove, removeCompleted, stats };
+  return { notes, add, exists, increment, decrement, reset, confirm, edit, remove, removeCompleted, stats };
 }

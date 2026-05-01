@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, CheckCircle2, History, Minus, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Camera, CheckCircle2, Edit3, History, Minus, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { formatDateTime, normalizeCode, normalizeName } from "@/lib/storage";
 import { useReceipts } from "@/hooks/useReceipts";
@@ -19,8 +19,8 @@ export function ReceiptModule() {
   const [view, setView] = useState<ReceiptView>("abertas");
   const [error, setError] = useState("");
 
-  const activeNotes = useMemo(() => receipts.notes.filter((note) => note.atual < note.total), [receipts.notes]);
-  const historyNotes = useMemo(() => receipts.notes.filter((note) => note.atual >= note.total), [receipts.notes]);
+  const activeNotes = useMemo(() => receipts.notes.filter((note) => !note.confirmedAt), [receipts.notes]);
+  const historyNotes = useMemo(() => receipts.notes.filter((note) => note.confirmedAt), [receipts.notes]);
   const visibleNotes = view === "abertas" ? activeNotes : historyNotes;
 
   function closeForm() {
@@ -78,7 +78,7 @@ export function ReceiptModule() {
 
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Abertas" value={receipts.stats.open} />
-        <Stat label="Historico" value={receipts.stats.done} />
+        <Stat label="Revisao" value={receipts.stats.review} />
         <Stat label="Itens" value={`${receipts.stats.checkedItems}/${receipts.stats.totalItems}`} />
       </div>
 
@@ -117,7 +117,7 @@ export function ReceiptModule() {
       <div className="space-y-3">
         {visibleNotes.length === 0 ? (
           <div className="rounded-lg border border-digaspi-line bg-white p-5 text-center font-bold text-slate-600 shadow-panel">
-            {view === "abertas" ? "Nenhuma nota aberta." : "Nenhuma nota concluida no historico."}
+            {view === "abertas" ? "Nenhuma nota aberta." : "Nenhuma nota confirmada no historico."}
           </div>
         ) : (
           visibleNotes.map((note) => <ReceiptCard key={note.id} note={note} receipts={receipts} />)
@@ -231,6 +231,8 @@ function ReceiptCard({
   receipts: ReturnType<typeof useReceipts>;
 }) {
   const done = note.atual >= note.total;
+  const confirmed = Boolean(note.confirmedAt);
+  const needsReview = done && !confirmed;
   const percent = Math.round((note.atual / note.total) * 100);
 
   return (
@@ -246,10 +248,10 @@ function ReceiptCard({
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-black ${
-            done ? "bg-digaspi-green text-white" : "bg-digaspi-pale text-digaspi-blue"
+            confirmed ? "bg-digaspi-green text-white" : needsReview ? "bg-amber-500 text-white" : "bg-digaspi-pale text-digaspi-blue"
           }`}
         >
-          {done ? "Concluido" : "Aberta"}
+          {confirmed ? "Historico" : needsReview ? "Revisar" : "Aberta"}
         </span>
       </div>
 
@@ -265,30 +267,52 @@ function ReceiptCard({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            receipts.increment(note.id);
-            navigator.vibrate?.(20);
-          }}
-          disabled={done}
-          className="flex h-14 items-center justify-center gap-2 rounded-md bg-digaspi-blue font-black text-white disabled:bg-digaspi-green"
-        >
-          {done ? <CheckCircle2 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-          {done ? "Finalizada" : "Marcar"}
-        </button>
-        <button
-          type="button"
-          onClick={() => receipts.decrement(note.id)}
-          className="flex h-14 items-center justify-center gap-2 rounded-md border border-digaspi-line bg-white font-black text-digaspi-blue"
-        >
-          <Minus className="h-5 w-5" />
-          Desfazer
-        </button>
-      </div>
+      {needsReview ? (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => receipts.edit(note.id)}
+            className="flex h-14 items-center justify-center gap-2 rounded-md border border-digaspi-line bg-white font-black text-digaspi-blue"
+          >
+            <Edit3 className="h-5 w-5" />
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={() => receipts.confirm(note.id)}
+            className="flex h-14 items-center justify-center gap-2 rounded-md bg-digaspi-green font-black text-white"
+          >
+            <CheckCircle2 className="h-5 w-5" />
+            Confirmar
+          </button>
+        </div>
+      ) : (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              receipts.increment(note.id);
+              navigator.vibrate?.(20);
+            }}
+            disabled={confirmed}
+            className="flex h-14 items-center justify-center gap-2 rounded-md bg-digaspi-blue font-black text-white disabled:bg-digaspi-green"
+          >
+            {confirmed ? <CheckCircle2 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+            {confirmed ? "Confirmada" : "Marcar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => receipts.decrement(note.id)}
+            disabled={confirmed}
+            className="flex h-14 items-center justify-center gap-2 rounded-md border border-digaspi-line bg-white font-black text-digaspi-blue disabled:opacity-50"
+          >
+            <Minus className="h-5 w-5" />
+            Desfazer
+          </button>
+        </div>
+      )}
 
-      <div className="mt-2 grid grid-cols-2 gap-2">
+      {!confirmed ? <div className="mt-2 grid grid-cols-2 gap-2">
         <ConfirmButton
           message="Resetar a contagem desta nota?"
           onConfirm={() => receipts.reset(note.id)}
@@ -305,7 +329,7 @@ function ReceiptCard({
           <Trash2 className="h-4 w-4" />
           Apagar
         </ConfirmButton>
-      </div>
+      </div> : null}
     </article>
   );
 }

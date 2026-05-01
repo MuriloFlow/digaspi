@@ -6,6 +6,7 @@ export type ReceiptNote = {
   atual: number;
   createdAt: number;
   updatedAt: number;
+  confirmedAt: number | null;
 };
 
 export type PullRecord = {
