@@ -1,6 +1,6 @@
 "use client";
 
-import { Flashlight, FlashlightOff, ScanLine, X, Zap } from "lucide-react";
+import { Flashlight, FlashlightOff, RotateCw, ScanLine, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeCode } from "@/lib/storage";
 
@@ -29,6 +29,11 @@ type Props = {
   onClose: () => void;
   onRead: (value: string) => void;
   isDuplicate?: (value: string) => boolean;
+};
+
+type LockableScreenOrientation = ScreenOrientation & {
+  lock?: (orientation: "any" | "natural" | "landscape" | "portrait" | "portrait-primary" | "portrait-secondary" | "landscape-primary" | "landscape-secondary") => Promise<void>;
+  unlock?: () => void;
 };
 
 const STABLE_READS_REQUIRED = 2;
@@ -70,6 +75,7 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [scanPulse, setScanPulse] = useState(false);
   const [detectedBox, setDetectedBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [isLandscape, setIsLandscape] = useState(false);
 
   const detectorFormats = useMemo(
     () => ["code_128", "code_39", "code_93", "codabar", "ean_13", "ean_8", "itf", "qr_code", "upc_a", "upc_e"],
@@ -190,6 +196,9 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
     let cancelled = false;
     let timer = 0;
     let busy = false;
+    const updateOrientation = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight);
+    };
 
     async function start() {
       setError("");
@@ -202,6 +211,11 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
       setDetectedBox(null);
       lastReadRef.current = { value: "", at: 0 };
       stableReadRef.current = { value: "", count: 0, at: 0 };
+
+      updateOrientation();
+      window.addEventListener("resize", updateOrientation);
+      const orientation = window.screen.orientation as LockableScreenOrientation | undefined;
+      orientation?.lock?.("landscape").catch(() => undefined);
 
       if (!window.BarcodeDetector) {
         setStatus("Entrada manual ativa");
@@ -286,6 +300,9 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
 
     return () => {
       cancelled = true;
+      window.removeEventListener("resize", updateOrientation);
+      const orientation = window.screen.orientation as LockableScreenOrientation | undefined;
+      orientation?.unlock?.();
       if (timer) window.clearTimeout(timer);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -295,8 +312,8 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 p-4">
-      <div className="mx-auto flex h-full max-w-md flex-col overflow-hidden rounded-lg bg-white">
+    <div className="fixed inset-0 z-50 bg-black/80 p-3">
+      <div className="mx-auto flex h-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white">
         <div className="flex items-center justify-between border-b border-digaspi-line p-4">
           <div>
             <h2 className="text-lg font-black text-digaspi-ink">Scanner da nota</h2>
@@ -308,11 +325,18 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
         </div>
 
         <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
-          <div className="relative min-h-[430px] overflow-hidden rounded-lg bg-slate-950 sm:min-h-[520px]">
-            <video ref={videoRef} className="h-full min-h-[430px] w-full object-cover sm:min-h-[520px]" muted playsInline />
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0,transparent_56%,rgba(0,0,0,0.24)_100%)]" />
+          {!isLandscape ? (
+            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">
+              <RotateCw className="h-6 w-6 shrink-0" />
+              <p className="text-sm font-black">Vire o celular de lado para ler a barra inteira da nota com mais precisao.</p>
+            </div>
+          ) : null}
+
+          <div className="relative min-h-[360px] overflow-hidden rounded-lg bg-slate-950 landscape:min-h-[calc(100vh-190px)]">
+            <video ref={videoRef} className="h-full min-h-[360px] w-full object-cover landscape:min-h-[calc(100vh-190px)]" muted playsInline />
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.22),transparent_18%,transparent_82%,rgba(0,0,0,0.22))]" />
             <div
-              className={`absolute inset-x-7 top-1/2 h-0.5 bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.95)] transition ${
+              className={`absolute inset-x-4 top-1/2 h-0.5 bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.95)] transition ${
                 scanPulse ? "opacity-100" : "opacity-70"
               }`}
             />
@@ -331,8 +355,8 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
                 </span>
               </div>
             ) : (
-              <div className="absolute left-1/2 top-1/2 flex h-28 w-64 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border border-white/55 text-xs font-black uppercase tracking-wide text-white/80">
-                Camera inteira ativa
+              <div className="absolute left-1/2 top-1/2 flex h-24 w-[88%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border-2 border-dashed border-white/70 px-4 text-center text-xs font-black uppercase tracking-wide text-white/85">
+                Enquadre a barra inteira na horizontal
               </div>
             )}
             <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
@@ -355,7 +379,7 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
 
           {error ? <p className="rounded-md bg-red-50 p-3 text-sm font-bold text-digaspi-red">{error}</p> : null}
 
-          <div className="rounded-lg border border-digaspi-line bg-digaspi-pale p-3">
+          <div className="rounded-lg border border-digaspi-line bg-digaspi-pale p-3 landscape:hidden">
             <div className="mb-2 flex items-center gap-2 text-sm font-black text-digaspi-ink">
               <Zap className="h-4 w-4 text-digaspi-blue" />
               Entrada manual rapida
