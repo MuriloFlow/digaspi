@@ -1,6 +1,6 @@
 "use client";
 
-import { Flashlight, FlashlightOff, RotateCw, ScanLine, X, Zap } from "lucide-react";
+import { Flashlight, FlashlightOff, RotateCw, ScanLine, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeCode } from "@/lib/storage";
 
@@ -67,7 +67,6 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
   const lastReadRef = useRef<{ value: string; at: number }>({ value: "", at: 0 });
   const stableReadRef = useRef<{ value: string; count: number; at: number }>({ value: "", count: 0, at: 0 });
   const [error, setError] = useState("");
-  const [manual, setManual] = useState("");
   const [status, setStatus] = useState("Inicializando camera...");
   const [candidate, setCandidate] = useState("");
   const [candidateCount, setCandidateCount] = useState(0);
@@ -202,7 +201,6 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
 
     async function start() {
       setError("");
-      setManual("");
       setTorchOn(false);
       setTorchAvailable(false);
       setStatus("Inicializando camera...");
@@ -219,7 +217,7 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
 
       if (!window.BarcodeDetector) {
         setStatus("Entrada manual ativa");
-        setError("Scanner automatico indisponivel neste navegador. Use a entrada manual.");
+        setError("Scanner automatico indisponivel neste navegador. Feche e digite o codigo no campo da nota.");
         return;
       }
 
@@ -292,7 +290,7 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
         timer = window.setTimeout(scan, 120);
       } catch {
         setStatus("Entrada manual ativa");
-        setError("Camera bloqueada. Libere a permissao ou use a entrada manual.");
+        setError("Camera bloqueada. Libere a permissao ou feche e digite o codigo no campo da nota.");
       }
     }
 
@@ -312,94 +310,73 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 p-3">
-      <div className="mx-auto flex h-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white">
-        <div className="flex items-center justify-between border-b border-digaspi-line p-4">
-          <div>
-            <h2 className="text-lg font-black text-digaspi-ink">Scanner da nota</h2>
-            <p className="mt-1 text-xs font-bold text-digaspi-blue">{status}</p>
-          </div>
-          <button className="flex h-10 w-10 items-center justify-center rounded-md bg-digaspi-pale" onClick={onClose}>
-            <X className="h-5 w-5" />
+    <div className="fixed inset-0 z-50 overflow-hidden bg-black">
+      <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover" muted playsInline />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.34),transparent_18%,transparent_82%,rgba(0,0,0,0.34))]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/80 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/85 to-transparent" />
+
+      <div className="absolute left-4 right-4 top-4 flex items-start justify-between gap-3">
+        <div className="rounded-lg bg-black/60 px-3 py-2 text-white backdrop-blur">
+          <h2 className="text-base font-black">Scanner da nota</h2>
+          <p className="mt-1 text-xs font-bold text-white/85">{status}</p>
+        </div>
+        <button className="flex h-11 w-11 items-center justify-center rounded-md bg-white/90 text-digaspi-ink" onClick={onClose}>
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      {!isLandscape ? (
+        <div className="absolute left-4 right-4 top-24 flex items-center gap-3 rounded-lg bg-amber-50/95 p-3 text-amber-800 shadow-panel">
+          <RotateCw className="h-6 w-6 shrink-0" />
+          <p className="text-sm font-black">Vire o celular de lado para a barra caber inteira na tela.</p>
+        </div>
+      ) : null}
+
+      <div
+        className={`absolute inset-x-4 top-1/2 h-0.5 bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.95)] transition ${
+          scanPulse ? "opacity-100" : "opacity-75"
+        }`}
+      />
+
+      {detectedBox ? (
+        <div
+          className="absolute rounded-md border-4 border-digaspi-green bg-green-400/10 shadow-[0_0_26px_rgba(20,128,74,0.85)] transition-all duration-75"
+          style={{
+            left: `${detectedBox.x}px`,
+            top: `${detectedBox.y}px`,
+            width: `${detectedBox.width}px`,
+            height: `${detectedBox.height}px`
+          }}
+        >
+          <span className="absolute -top-8 left-0 rounded-md bg-digaspi-green px-2 py-1 text-xs font-black text-white">
+            Validado
+          </span>
+        </div>
+      ) : (
+        <div className="absolute left-1/2 top-1/2 flex h-24 w-[90vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border-2 border-dashed border-white/75 px-4 text-center text-xs font-black uppercase tracking-wide text-white/90 landscape:h-28 landscape:w-[82vw]">
+          Enquadre a barra inteira na horizontal
+        </div>
+      )}
+
+      <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
+        <div className="min-w-0 space-y-2">
+          <span className="inline-flex items-center gap-2 rounded-md bg-black/65 px-3 py-2 text-xs font-black text-white backdrop-blur">
+            <ScanLine className="h-4 w-4" />
+            {candidate ? `${candidateCount}/${STABLE_READS_REQUIRED}` : "Tempo real"}
+          </span>
+          {error ? <p className="rounded-md bg-red-600/95 p-3 text-sm font-black text-white shadow-panel">{error}</p> : null}
+        </div>
+        {torchAvailable ? (
+          <button
+            type="button"
+            onClick={toggleTorch}
+            className="flex h-12 shrink-0 items-center gap-2 rounded-md bg-white px-3 text-xs font-black text-digaspi-ink"
+          >
+            {torchOn ? <FlashlightOff className="h-4 w-4" /> : <Flashlight className="h-4 w-4" />}
+            Luz
           </button>
-        </div>
-
-        <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
-          {!isLandscape ? (
-            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">
-              <RotateCw className="h-6 w-6 shrink-0" />
-              <p className="text-sm font-black">Vire o celular de lado para ler a barra inteira da nota com mais precisao.</p>
-            </div>
-          ) : null}
-
-          <div className="relative min-h-[360px] overflow-hidden rounded-lg bg-slate-950 landscape:min-h-[calc(100vh-190px)]">
-            <video ref={videoRef} className="h-full min-h-[360px] w-full object-cover landscape:min-h-[calc(100vh-190px)]" muted playsInline />
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.22),transparent_18%,transparent_82%,rgba(0,0,0,0.22))]" />
-            <div
-              className={`absolute inset-x-4 top-1/2 h-0.5 bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.95)] transition ${
-                scanPulse ? "opacity-100" : "opacity-70"
-              }`}
-            />
-            {detectedBox ? (
-              <div
-                className="absolute rounded-md border-4 border-digaspi-green bg-green-400/10 shadow-[0_0_26px_rgba(20,128,74,0.85)] transition-all duration-75"
-                style={{
-                  left: `${detectedBox.x}px`,
-                  top: `${detectedBox.y}px`,
-                  width: `${detectedBox.width}px`,
-                  height: `${detectedBox.height}px`
-                }}
-              >
-                <span className="absolute -top-8 left-0 rounded-md bg-digaspi-green px-2 py-1 text-xs font-black text-white">
-                  Validado
-                </span>
-              </div>
-            ) : (
-              <div className="absolute left-1/2 top-1/2 flex h-24 w-[88%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border-2 border-dashed border-white/70 px-4 text-center text-xs font-black uppercase tracking-wide text-white/85">
-                Enquadre a barra inteira na horizontal
-              </div>
-            )}
-            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2 rounded-md bg-black/65 px-3 py-2 text-xs font-black text-white">
-                <ScanLine className="h-4 w-4" />
-                {candidate ? `${candidateCount}/${STABLE_READS_REQUIRED}` : "Tempo real"}
-              </span>
-              {torchAvailable ? (
-                <button
-                  type="button"
-                  onClick={toggleTorch}
-                  className="flex h-10 items-center gap-2 rounded-md bg-white px-3 text-xs font-black text-digaspi-ink"
-                >
-                  {torchOn ? <FlashlightOff className="h-4 w-4" /> : <Flashlight className="h-4 w-4" />}
-                  Luz
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          {error ? <p className="rounded-md bg-red-50 p-3 text-sm font-bold text-digaspi-red">{error}</p> : null}
-
-          <div className="rounded-lg border border-digaspi-line bg-digaspi-pale p-3 landscape:hidden">
-            <div className="mb-2 flex items-center gap-2 text-sm font-black text-digaspi-ink">
-              <Zap className="h-4 w-4 text-digaspi-blue" />
-              Entrada manual rapida
-            </div>
-            <input
-              className="h-11 w-full rounded-md border border-digaspi-line px-3 font-bold uppercase outline-none"
-              value={manual}
-              onChange={(event) => setManual(event.target.value.toUpperCase())}
-              placeholder="Digite ou cole o codigo"
-            />
-            <button
-              type="button"
-              disabled={!manual.trim()}
-              onClick={() => commitCode(manual)}
-              className="mt-2 h-11 w-full rounded-md bg-digaspi-blue font-black text-white disabled:opacity-50"
-            >
-              Usar codigo
-            </button>
-          </div>
-        </div>
+        ) : null}
       </div>
     </div>
   );
