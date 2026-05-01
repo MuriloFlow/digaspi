@@ -31,6 +31,9 @@ type Props = {
   isDuplicate?: (value: string) => boolean;
 };
 
+const STABLE_READS_REQUIRED = 2;
+const MIN_CODE_LENGTH = 4;
+
 function playBlip(kind: "ok" | "warn" = "ok") {
   try {
     const AudioCtor = window.AudioContext || window.webkitAudioContext;
@@ -57,9 +60,12 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastReadRef = useRef<{ value: string; at: number }>({ value: "", at: 0 });
+  const stableReadRef = useRef<{ value: string; count: number; at: number }>({ value: "", count: 0, at: 0 });
   const [error, setError] = useState("");
   const [manual, setManual] = useState("");
   const [status, setStatus] = useState("Inicializando camera...");
+  const [candidate, setCandidate] = useState("");
+  const [candidateCount, setCandidateCount] = useState(0);
   const [torchOn, setTorchOn] = useState(false);
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [scanPulse, setScanPulse] = useState(false);
@@ -112,9 +118,9 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
     return null;
   }, []);
 
-  const handleCode = useCallback((raw: string) => {
+  const commitCode = useCallback((raw: string) => {
     const value = normalizeCode(raw);
-    if (!value) return false;
+    if (!value || value.length < MIN_CODE_LENGTH) return false;
 
     const now = Date.now();
     if (lastReadRef.current.value === value && now - lastReadRef.current.at < 1200) return false;
@@ -139,6 +145,32 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
     window.setTimeout(onClose, 180);
     return true;
   }, [isDuplicate, onClose, onRead]);
+
+  const handleDetectedCode = useCallback((raw: string) => {
+    const value = normalizeCode(raw);
+    if (!value || value.length < MIN_CODE_LENGTH) {
+      stableReadRef.current = { value: "", count: 0, at: 0 };
+      setCandidate("");
+      setCandidateCount(0);
+      return false;
+    }
+
+    const now = Date.now();
+    const previous = stableReadRef.current;
+    const sameCandidate = previous.value === value && now - previous.at < 900;
+    const nextCount = sameCandidate ? previous.count + 1 : 1;
+    stableReadRef.current = { value, count: nextCount, at: now };
+    setCandidate(value);
+    setCandidateCount(nextCount);
+
+    if (nextCount < STABLE_READS_REQUIRED) {
+      setError("");
+      setStatus(`Confirmando ${value} (${nextCount}/${STABLE_READS_REQUIRED})`);
+      return false;
+    }
+
+    return commitCode(value);
+  }, [commitCode]);
 
   async function toggleTorch() {
     const track = streamRef.current?.getVideoTracks()[0];
@@ -165,8 +197,11 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
       setTorchOn(false);
       setTorchAvailable(false);
       setStatus("Inicializando camera...");
+      setCandidate("");
+      setCandidateCount(0);
       setDetectedBox(null);
       lastReadRef.current = { value: "", at: 0 };
+      stableReadRef.current = { value: "", count: 0, at: 0 };
 
       if (!window.BarcodeDetector) {
         setStatus("Entrada manual ativa");
@@ -178,8 +213,9 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 30, max: 60 }
           },
           audio: false
         });
@@ -188,6 +224,19 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
         const track = stream.getVideoTracks()[0];
         const capabilities = track.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean };
         setTorchAvailable(Boolean(capabilities?.torch));
+        try {
+          await track.applyConstraints({
+            advanced: [
+              {
+                focusMode: "continuous",
+                exposureMode: "continuous",
+                whiteBalanceMode: "continuous"
+              } as MediaTrackConstraintSet
+            ]
+          });
+        } catch {
+          // Advanced camera controls are optional and vary by browser.
+        }
 
         if (!videoRef.current) return;
         videoRef.current.srcObject = stream;
@@ -208,10 +257,13 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
               const value = best?.rawValue?.trim();
               const box = best ? mapBoxToVideo(best) : null;
               setDetectedBox(box);
-              if (value && handleCode(value)) return;
+              if (value && handleDetectedCode(value)) return;
               if (!value) {
                 setStatus("Procurando codigo na camera inteira...");
                 setDetectedBox(null);
+                stableReadRef.current = { value: "", count: 0, at: 0 };
+                setCandidate("");
+                setCandidateCount(0);
               }
             } catch {
               setError("Nao foi possivel ler agora. Aproxime a camera e melhore a luz.");
@@ -220,7 +272,7 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
             }
           }
 
-          timer = window.setTimeout(scan, 90);
+          timer = window.setTimeout(scan, 65);
         };
 
         timer = window.setTimeout(scan, 120);
@@ -238,7 +290,7 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     };
-  }, [detectorFormats, handleCode, mapBoxToVideo, open]);
+  }, [detectorFormats, handleDetectedCode, mapBoxToVideo, open]);
 
   if (!open) return null;
 
@@ -286,7 +338,7 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
             <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
               <span className="flex items-center gap-2 rounded-md bg-black/65 px-3 py-2 text-xs font-black text-white">
                 <ScanLine className="h-4 w-4" />
-                Tempo real
+                {candidate ? `${candidateCount}/${STABLE_READS_REQUIRED}` : "Tempo real"}
               </span>
               {torchAvailable ? (
                 <button
@@ -317,7 +369,7 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
             <button
               type="button"
               disabled={!manual.trim()}
-              onClick={() => handleCode(manual)}
+              onClick={() => commitCode(manual)}
               className="mt-2 h-11 w-full rounded-md bg-digaspi-blue font-black text-white disabled:opacity-50"
             >
               Usar codigo
