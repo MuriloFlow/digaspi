@@ -5,9 +5,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeCode } from "@/lib/storage";
 
 declare global {
+  type BarcodeCornerPoint = {
+    x: number;
+    y: number;
+  };
+
+  type BarcodeDetectionResult = {
+    rawValue: string;
+    boundingBox?: DOMRectReadOnly;
+    cornerPoints?: BarcodeCornerPoint[];
+  };
+
   interface Window {
     BarcodeDetector?: new (options?: { formats?: string[] }) => {
-      detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>>;
+      detect: (source: HTMLVideoElement) => Promise<BarcodeDetectionResult[]>;
     };
     webkitAudioContext?: typeof AudioContext;
   }
@@ -52,11 +63,54 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
   const [torchOn, setTorchOn] = useState(false);
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [scanPulse, setScanPulse] = useState(false);
+  const [detectedBox, setDetectedBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const detectorFormats = useMemo(
     () => ["code_128", "code_39", "code_93", "codabar", "ean_13", "ean_8", "itf", "qr_code", "upc_a", "upc_e"],
     []
   );
+
+  const mapBoxToVideo = useCallback((result: BarcodeDetectionResult) => {
+    const video = videoRef.current;
+    if (!video) return null;
+
+    const rect = video.getBoundingClientRect();
+    const videoWidth = video.videoWidth || rect.width;
+    const videoHeight = video.videoHeight || rect.height;
+    const objectScale = Math.max(rect.width / videoWidth, rect.height / videoHeight);
+    const renderedWidth = videoWidth * objectScale;
+    const renderedHeight = videoHeight * objectScale;
+    const offsetX = (rect.width - renderedWidth) / 2;
+    const offsetY = (rect.height - renderedHeight) / 2;
+
+    const points = result.cornerPoints;
+    if (points?.length) {
+      const xs = points.map((point) => point.x);
+      const ys = points.map((point) => point.y);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      return {
+        x: offsetX + minX * objectScale,
+        y: offsetY + minY * objectScale,
+        width: Math.max(44, (maxX - minX) * objectScale),
+        height: Math.max(32, (maxY - minY) * objectScale)
+      };
+    }
+
+    if (result.boundingBox) {
+      return {
+        x: offsetX + result.boundingBox.x * objectScale,
+        y: offsetY + result.boundingBox.y * objectScale,
+        width: Math.max(44, result.boundingBox.width * objectScale),
+        height: Math.max(32, result.boundingBox.height * objectScale)
+      };
+    }
+
+    return null;
+  }, []);
 
   const handleCode = useCallback((raw: string) => {
     const value = normalizeCode(raw);
@@ -111,6 +165,7 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
       setTorchOn(false);
       setTorchAvailable(false);
       setStatus("Inicializando camera...");
+      setDetectedBox(null);
       lastReadRef.current = { value: "", at: 0 };
 
       if (!window.BarcodeDetector) {
@@ -149,9 +204,15 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
             busy = true;
             try {
               const codes = await detector.detect(videoRef.current);
-              const value = codes[0]?.rawValue?.trim();
+              const best = codes[0];
+              const value = best?.rawValue?.trim();
+              const box = best ? mapBoxToVideo(best) : null;
+              setDetectedBox(box);
               if (value && handleCode(value)) return;
-              if (!value) setStatus("Procurando codigo...");
+              if (!value) {
+                setStatus("Procurando codigo na camera inteira...");
+                setDetectedBox(null);
+              }
             } catch {
               setError("Nao foi possivel ler agora. Aproxime a camera e melhore a luz.");
             } finally {
@@ -177,7 +238,7 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     };
-  }, [detectorFormats, handleCode, open]);
+  }, [detectorFormats, handleCode, mapBoxToVideo, open]);
 
   if (!open) return null;
 
@@ -195,14 +256,33 @@ export function BarcodeScannerModal({ open, onClose, onRead, isDuplicate }: Prop
         </div>
 
         <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
-          <div className="relative min-h-[330px] overflow-hidden rounded-lg bg-slate-950">
-            <video ref={videoRef} className="h-full min-h-[330px] w-full object-cover" muted playsInline />
-            <div className="absolute inset-x-7 top-1/2 h-24 -translate-y-1/2 rounded-lg border-2 border-white shadow-[0_0_0_999px_rgba(0,0,0,0.28)]" />
+          <div className="relative min-h-[430px] overflow-hidden rounded-lg bg-slate-950 sm:min-h-[520px]">
+            <video ref={videoRef} className="h-full min-h-[430px] w-full object-cover sm:min-h-[520px]" muted playsInline />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0,transparent_56%,rgba(0,0,0,0.24)_100%)]" />
             <div
-              className={`absolute inset-x-10 top-1/2 h-0.5 bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.95)] transition ${
+              className={`absolute inset-x-7 top-1/2 h-0.5 bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.95)] transition ${
                 scanPulse ? "opacity-100" : "opacity-70"
               }`}
             />
+            {detectedBox ? (
+              <div
+                className="absolute rounded-md border-4 border-digaspi-green bg-green-400/10 shadow-[0_0_26px_rgba(20,128,74,0.85)] transition-all duration-75"
+                style={{
+                  left: `${detectedBox.x}px`,
+                  top: `${detectedBox.y}px`,
+                  width: `${detectedBox.width}px`,
+                  height: `${detectedBox.height}px`
+                }}
+              >
+                <span className="absolute -top-8 left-0 rounded-md bg-digaspi-green px-2 py-1 text-xs font-black text-white">
+                  Validado
+                </span>
+              </div>
+            ) : (
+              <div className="absolute left-1/2 top-1/2 flex h-28 w-64 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border border-white/55 text-xs font-black uppercase tracking-wide text-white/80">
+                Camera inteira ativa
+              </div>
+            )}
             <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
               <span className="flex items-center gap-2 rounded-md bg-black/65 px-3 py-2 text-xs font-black text-white">
                 <ScanLine className="h-4 w-4" />
