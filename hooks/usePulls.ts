@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PULLS_KEY } from "@/lib/constants";
+import { PULLS_KEY, PULLS_TTL_MS } from "@/lib/constants";
 import { PullRecord } from "@/lib/types";
 import { readExpiringList, writeList } from "@/lib/storage";
 
@@ -19,7 +19,7 @@ export function usePulls() {
   const [records, setRecords] = useState<PullRecord[]>([]);
 
   useEffect(() => {
-    setRecords(readExpiringList<PullRecord>(PULLS_KEY));
+    setRecords(readExpiringList<PullRecord>(PULLS_KEY, PULLS_TTL_MS));
   }, []);
 
   function persist(next: PullRecord[]) {
@@ -46,13 +46,12 @@ export function usePulls() {
   }
 
   const today = useMemo(() => records.filter((record) => isToday(record.createdAt)), [records]);
-  const totalToday = useMemo(() => today.reduce((sum, record) => sum + record.quantidade, 0), [today]);
   const byBrand = useMemo(() => {
     return today.reduce<Record<string, number>>((acc, record) => {
-      acc[record.marca] = (acc[record.marca] || 0) + record.quantidade;
+      acc[record.marca] = (acc[record.marca] || 0) + 1;
       return acc;
     }, {});
   }, [today]);
 
-  return { records, today, totalToday, byBrand, add, remove, clearToday };
+  return { records, today, totalToday: today.length, byBrand, add, remove, clearToday };
 }

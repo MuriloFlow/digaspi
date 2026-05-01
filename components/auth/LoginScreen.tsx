@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Lock, User } from "lucide-react";
+import { Eye, EyeOff, Lock, User } from "lucide-react";
 import { DigaspiLogo } from "@/components/brand/DigaspiLogo";
 
 type Props = {
@@ -11,6 +11,7 @@ type Props = {
 export function LoginScreen({ onLogin }: Props) {
   const [user, setUser] = useState("estoque.l41");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -48,11 +49,19 @@ export function LoginScreen({ onLogin }: Props) {
               <Lock className="h-5 w-5 text-digaspi-blue" />
               <input
                 className="h-full min-w-0 flex-1 outline-none"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
               />
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center text-digaspi-blue"
+                onClick={() => setShowPassword((current) => !current)}
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </span>
           </label>
 

@@ -26,7 +26,7 @@ export function HomeMenu({ onOpen }: Props) {
         <MenuCard
           icon={<BarChart3 className="h-9 w-9" />}
           title="PUXADA"
-          text="Registrar organizacao de produtos por funcionario, marca e quantidade."
+          text="Registrar organizacao por funcionario e marca, com historico do dia."
           onClick={() => onOpen("puxada")}
         />
       </div>
@@ -35,8 +35,8 @@ export function HomeMenu({ onOpen }: Props) {
         <div className="flex items-start gap-3">
           <ClipboardCheck className="h-6 w-6 text-digaspi-green" />
           <div>
-            <p className="text-sm font-black text-slate-800">Dados salvos no celular por 72 horas.</p>
-            <p className="mt-1 text-xs font-semibold text-slate-500">Funciona rapido e sem internet depois de carregado.</p>
+            <p className="text-sm font-black text-slate-800">Recebimento salvo por 14 dias.</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">Puxada fica salva por 72 horas no celular.</p>
           </div>
         </div>
         <div className="mt-3 flex items-start gap-3 rounded-md bg-digaspi-pale p-3">

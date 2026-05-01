@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { RECEIPTS_KEY } from "@/lib/constants";
+import { RECEIPTS_KEY, RECEIPTS_TTL_MS } from "@/lib/constants";
 import { ReceiptNote } from "@/lib/types";
 import { readExpiringList, writeList } from "@/lib/storage";
 
@@ -9,7 +9,7 @@ export function useReceipts() {
   const [notes, setNotes] = useState<ReceiptNote[]>([]);
 
   useEffect(() => {
-    setNotes(readExpiringList<ReceiptNote>(RECEIPTS_KEY));
+    setNotes(readExpiringList<ReceiptNote>(RECEIPTS_KEY, RECEIPTS_TTL_MS));
   }, []);
 
   function persist(next: ReceiptNote[]) {

@@ -1,9 +1,7 @@
-import { Brand } from "@/lib/constants";
-
 export type ReceiptNote = {
   id: string;
   codigo: string;
-  marca: Brand;
+  marca: string;
   total: number;
   atual: number;
   createdAt: number;
@@ -13,8 +11,7 @@ export type ReceiptNote = {
 export type PullRecord = {
   id: string;
   funcionario: string;
-  marca: Brand;
-  quantidade: number;
+  marca: string;
   createdAt: number;
 };
 

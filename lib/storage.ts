@@ -1,5 +1,3 @@
-import { TTL_MS } from "@/lib/constants";
-
 type Timestamped = {
   createdAt: number;
 };
@@ -8,13 +6,13 @@ export function isBrowser() {
   return typeof window !== "undefined";
 }
 
-export function readExpiringList<T extends Timestamped>(key: string): T[] {
+export function readExpiringList<T extends Timestamped>(key: string, ttlMs: number): T[] {
   if (!isBrowser()) return [];
 
   try {
     const raw = window.localStorage.getItem(key);
     const parsed = raw ? (JSON.parse(raw) as T[]) : [];
-    const fresh = parsed.filter((item) => Date.now() - item.createdAt <= TTL_MS);
+    const fresh = parsed.filter((item) => Date.now() - item.createdAt <= ttlMs);
 
     if (fresh.length !== parsed.length) {
       window.localStorage.setItem(key, JSON.stringify(fresh));
@@ -58,4 +56,8 @@ export function normalizeCode(value: string) {
     .replace(/[^\w.\-\/]/g, "")
     .trim()
     .toUpperCase();
+}
+
+export function normalizeName(value: string) {
+  return value.normalize("NFKC").replace(/\s+/g, " ").trim();
 }

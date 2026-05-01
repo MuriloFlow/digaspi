@@ -9,9 +9,10 @@ Sistema mobile-first para rotinas de estoque da loja.
 - Scanner de codigo de barras da nota quando o navegador suporta `BarcodeDetector`
 - Entrada manual rapida como fallback do scanner
 - Multiplas notas abertas, filtros e limpeza de concluidas
-- Puxada com funcionario, marca, quantidade e resumo por marca
+- Puxada com funcionario, marca digitada e resumo por marca
 - Copia de relatorio do dia
-- Persistencia apenas no `localStorage`, com expiracao de 72 horas
+- Recebimento salvo por 14 dias no `localStorage`
+- Puxada salva por 72 horas no `localStorage`
 
 ## Rodar local
 
