@@ -6,13 +6,12 @@ import { StoredAuth } from "@/lib/types";
 
 export function useAuth() {
   const [authenticated, setAuthenticated] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(true);
 
   useEffect(() => {
     const raw = window.localStorage.getItem(AUTH_KEY);
 
     if (!raw) {
-      setReady(true);
       return;
     }
 
@@ -23,8 +22,6 @@ export function useAuth() {
       if (!valid) window.localStorage.removeItem(AUTH_KEY);
     } catch {
       window.localStorage.removeItem(AUTH_KEY);
-    } finally {
-      setReady(true);
     }
   }, []);
 
@@ -37,13 +34,21 @@ export function useAuth() {
       expiresAt: Date.now() + TTL_MS
     };
 
-    window.localStorage.setItem(AUTH_KEY, JSON.stringify(session));
+    try {
+      window.localStorage.setItem(AUTH_KEY, JSON.stringify(session));
+    } catch {
+      window.alert("Nao foi possivel salvar a sessao neste navegador.");
+    }
     setAuthenticated(true);
     return true;
   }
 
   function logout() {
-    window.localStorage.removeItem(AUTH_KEY);
+    try {
+      window.localStorage.removeItem(AUTH_KEY);
+    } catch {
+      // Ignore storage errors on restricted mobile browsers.
+    }
     setAuthenticated(false);
   }
 
