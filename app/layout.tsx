@@ -3,7 +3,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Di Gaspi Estoque",
-  description: "Rotinas de recebimento e puxada para estoque de loja."
+  description: "Rotinas de recebimento e puxada para estoque de loja.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png"
+  }
 };
 
 export const viewport: Viewport = {
