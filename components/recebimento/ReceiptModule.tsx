@@ -208,7 +208,16 @@ export function ReceiptModule() {
       <BarcodeScannerModal
         open={scannerOpen}
         onClose={() => setScannerOpen(false)}
-        onRead={(value) => setCodigo(normalizeCode(value))}
+        isDuplicate={(value) => receipts.exists(normalizeCode(value))}
+        onRead={(value) => {
+          const cleanCode = normalizeCode(value);
+          setCodigo(cleanCode);
+          if (receipts.exists(cleanCode)) {
+            setError("Esta nota ja esta salva.");
+          } else {
+            setError("");
+          }
+        }}
       />
     </section>
   );
