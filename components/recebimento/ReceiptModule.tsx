@@ -72,7 +72,7 @@ export function ReceiptModule() {
           className="flex h-14 w-full items-center justify-center gap-2 rounded-md bg-digaspi-blue text-lg font-black text-white"
         >
           <Plus className="h-6 w-6" />
-          Nova nota
+          NOVA NOTA
         </button>
       </div>
 
@@ -127,10 +127,18 @@ export function ReceiptModule() {
       {formOpen ? (
         <div className="fixed inset-0 z-40 bg-slate-950/45 p-4 backdrop-blur-sm">
           <div className="mx-auto flex min-h-full max-w-md items-center">
-            <form onSubmit={submit} className="w-full rounded-lg border border-digaspi-line bg-white p-4 shadow-panel">
+            <form
+              onSubmit={submit}
+              className="w-full rounded-lg border border-digaspi-line bg-white p-4 shadow-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="new-receipt-title"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-black text-digaspi-ink">Nova nota fiscal</h2>
+                  <h2 id="new-receipt-title" className="text-xl font-black text-digaspi-ink">
+                    Nova nota fiscal
+                  </h2>
                   <p className="mt-1 text-sm font-semibold text-slate-600">Conferencia por quantidade, sem papel.</p>
                 </div>
                 <button
@@ -190,7 +198,7 @@ export function ReceiptModule() {
               {error ? <p className="mt-3 rounded-md bg-red-50 p-3 text-sm font-bold text-digaspi-red">{error}</p> : null}
 
               <button className="mt-4 h-12 w-full rounded-md bg-digaspi-blue font-black text-white" type="submit">
-                Adicionar nota
+                Confirmar nota
               </button>
             </form>
           </div>
