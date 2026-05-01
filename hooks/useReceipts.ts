@@ -65,6 +65,16 @@ export function useReceipts() {
   }
 
   function edit(id: string) {
+    persist(
+      notes.map((note) =>
+        note.id === id
+          ? { ...note, atual: Math.max(0, note.total - 1), confirmedAt: null, updatedAt: Date.now() }
+          : note
+      )
+    );
+  }
+
+  function reopen(id: string) {
     persist(notes.map((note) => (note.id === id ? { ...note, confirmedAt: null, updatedAt: Date.now() } : note)));
   }
 
@@ -85,5 +95,5 @@ export function useReceipts() {
     return { totalItems, checkedItems, done, review, open: notes.length - done };
   }, [notes]);
 
-  return { notes, add, exists, increment, decrement, reset, confirm, edit, remove, removeCompleted, stats };
+  return { notes, add, exists, increment, decrement, reset, confirm, edit, reopen, remove, removeCompleted, stats };
 }

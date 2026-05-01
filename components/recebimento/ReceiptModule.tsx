@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, CheckCircle2, Edit3, History, Minus, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Camera, CheckCircle2, Edit3, History, Minus, Plus, RotateCcw, Trash2, Undo2, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { formatDateTime, normalizeCode, normalizeName } from "@/lib/storage";
 import { useReceipts } from "@/hooks/useReceipts";
@@ -312,24 +312,45 @@ function ReceiptCard({
         </div>
       )}
 
-      {!confirmed ? <div className="mt-2 grid grid-cols-2 gap-2">
-        <ConfirmButton
-          message="Resetar a contagem desta nota?"
-          onConfirm={() => receipts.reset(note.id)}
-          className="flex h-11 items-center justify-center gap-2 rounded-md bg-amber-50 font-black text-amber-700"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Resetar
-        </ConfirmButton>
-        <ConfirmButton
-          message="Apagar esta nota?"
-          onConfirm={() => receipts.remove(note.id)}
-          className="flex h-11 items-center justify-center gap-2 rounded-md bg-red-50 font-black text-digaspi-red"
-        >
-          <Trash2 className="h-4 w-4" />
-          Apagar
-        </ConfirmButton>
-      </div> : null}
+      {confirmed ? (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => receipts.reopen(note.id)}
+            className="flex h-11 items-center justify-center gap-2 rounded-md bg-digaspi-pale font-black text-digaspi-blue"
+          >
+            <Undo2 className="h-4 w-4" />
+            Reabrir
+          </button>
+          <ConfirmButton
+            message="Apagar esta nota do historico?"
+            onConfirm={() => receipts.remove(note.id)}
+            className="flex h-11 items-center justify-center gap-2 rounded-md bg-red-50 font-black text-digaspi-red"
+          >
+            <Trash2 className="h-4 w-4" />
+            Apagar
+          </ConfirmButton>
+        </div>
+      ) : (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <ConfirmButton
+            message="Resetar a contagem desta nota?"
+            onConfirm={() => receipts.reset(note.id)}
+            className="flex h-11 items-center justify-center gap-2 rounded-md bg-amber-50 font-black text-amber-700"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Resetar
+          </ConfirmButton>
+          <ConfirmButton
+            message="Apagar esta nota?"
+            onConfirm={() => receipts.remove(note.id)}
+            className="flex h-11 items-center justify-center gap-2 rounded-md bg-red-50 font-black text-digaspi-red"
+          >
+            <Trash2 className="h-4 w-4" />
+            Apagar
+          </ConfirmButton>
+        </div>
+      )}
     </article>
   );
 }
