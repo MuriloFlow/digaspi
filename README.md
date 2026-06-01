@@ -30,3 +30,6 @@ npm run now
 ## Vercel
 
 Nao precisa cadastrar variaveis de ambiente. O sistema nao usa backend, banco de dados, OpenAI ou API externa.
+
+
+## OIOIOIO TESTESTESTES
